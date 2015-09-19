@@ -7,23 +7,23 @@
 #include <unistd.h>
 #include <netinet/in.h>
 
-#define BUFSIZE 512
+void error(char *message);
+
 void error(char *message){
-    prinf(message);
+    printf("%s\n", message);
     exit(1);
 }
 
+
 int main(int argc, char *argv[]){
     
-    char *address;
-    char *port;
     
     if(argc != 3){
-        prinf("usage %s file", argv[0]);
+        printf("usage %s file", argv[0]);
         exit(0);
     }
-    *address = argv[1]; //server IP address
-    *port = argv[2]; //server port
+    char *address = argv[1]; //server IP address
+    char *port = argv[2]; //server port
     
     // create a socket
     int sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -35,7 +35,8 @@ int main(int argc, char *argv[]){
     memset(&servAddr, 0, sizeof(servAddr)); // set struct be 0
     servAddr.sin_family = AF_INET;
     int servIP = inet_pton(AF_INET, address, &servAddr.sin_addr.s_addr); //convers the string representat of the server's Internet address in dotted-quad notation into a 32-bit binary representation
-    servAddr.sin_port = htons(port); //converts the string port to binary earlier, ensure that the binary value is formatted as required by the API
+    int servPort = atoi(port);
+    servAddr.sin_port = htons(servPort); //converts the string port to binary earlier, ensure that the binary value is formatted as required by the API
     
     // establish the connection to server
     int connection = connect(sockfd, (struct sockaddr *) &servAddr, sizeof(servAddr));
@@ -49,13 +50,29 @@ int main(int argc, char *argv[]){
     }
     //send the str in socket to the server
     //receive the socket
-    char str[BUFSIZE];
-    while(fgets(str, 512, stdin) != NULL){
-        send(sockfd, str, 512, 0);
-        char buffer[BUFSIZE];
-        recv(sockfd, buffer, BUFSIZE-1, 0);
-        fputs(buffer, stdout);
+    size_t bufsize = 1024;
+    char buffer[bufsize];
+    ssize_t numBytes;
+    while(fgets(buffer, bufsize , stdin) != NULL){
+	numBytes = send(sockfd, buffer, bufsize, 0);
+	if(numBytes < 0){
+		error("send failed");
+	}
     }
+    
+	unsigned int totalBytes = 0;
+    while(totalBytes < bufsize){
+	char buffer[bufsize];
+	numBytes = recv(sockfd,  buffer, bufsize-1, 0);
+	if(numBytes < 0){
+		error("received failed");
+	}
+	totalBytes +=numBytes;
+	buffer[numBytes] = '\0';
+	fputs(buffer, stdout);
+}
+	
+	
     fputc('\n', stdout);
     close(sockfd);
     exit(0);
